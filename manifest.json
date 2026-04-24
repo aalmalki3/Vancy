@@ -1,0 +1,16 @@
+{
+  "name": "Vancy - نظام الإدارة",
+  "short_name": "Vancy",
+  "description": "نظام إدارة المبيعات والمخزون لعلامة فانسي",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f3e6",
+  "theme_color": "#2c4635",
+  "icons": [
+    {
+      "src": "Vancy.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
