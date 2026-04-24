@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vancy - نظام الإدارة المتكامل</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2c4635">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Vancy">
+    <link rel="apple-touch-icon" href="Vancy.jpg">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { 
+                        vancyDark: '#2c4635', 
+                        vancyLight: '#f4f3e6', 
+                        vancyAccent: '#4a6b54' 
+                    },
+                    fontFamily: { sans: ['Tajawal', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Tajawal', sans-serif; background-color: #f4f3e6; }
+        @media (min-width: 768px) { .bottom-nav { display: none; } }
+        @media (max-width: 767px) { 
+            .side-nav { display: none !important; } 
+            .main-content { width: 100% !important; margin-right: 0 !important; }
+            .content-padding { padding: 0.75rem !important; }
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        #invoice-template-container { display: none; }
+    </style>
+</head>
+<body class="text-vancyDark antialiased flex h-screen overflow-hidden" id="main-body">
+
+    <aside class="side-nav w-64 bg-white border-l border-vancyAccent/30 flex flex-col shadow-lg z-10">
+        <div class="p-6 flex flex-col items-center border-b border-vancyAccent/30">
+            <div class="w-24 h-24 rounded-full border-2 border-vancyDark bg-[#f4f3e6] overflow-hidden mb-3 flex items-center justify-center shadow-sm p-1">
+                <img src="Vancy.jpg" alt="Vancy Logo" class="w-full h-full object-contain">
+            </div>
+            <h1 class="text-xl font-bold tracking-wider">Vancy</h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-3 overflow-y-auto mt-4" id="desktop-nav">
+            <button onclick="switchTab('orders')" id="nav-orders" class="nav-item w-full flex items-center space-x-3 space-x-reverse p-3 rounded-lg transition font-bold text-gray-400 hover:bg-vancyLight hover:text-vancyDark"><i class="fas fa-shopping-bag w-5 text-lg"></i><span>الطلبيات والمبيعات</span></button>
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center space-x-3 space-x-reverse p-3 rounded-lg transition font-bold text-gray-400 hover:bg-vancyLight hover:text-vancyDark"><i class="fas fa-chart-line w-5 text-lg"></i><span>التحليل والأداء</span></button>
+            <button onclick="switchTab('inventory')" id="nav-inventory" class="nav-item w-full flex items-center space-x-3 space-x-reverse p-3 rounded-lg transition font-bold text-gray-400 hover:bg-vancyLight hover:text-vancyDark"><i class="fas fa-boxes w-5 text-lg"></i><span>المشتريات والمخزون</span></button>
+            <button onclick="switchTab('customers')" id="nav-customers" class="nav-item w-full flex items-center space-x-3 space-x-reverse p-3 rounded-lg transition font-bold text-gray-400 hover:bg-vancyLight hover:text-vancyDark"><i class="fas fa-users w-5 text-lg"></i><span>العملاء والفوترة</span></button>
+        </nav>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative main-content">
+        <header class="bg-white p-4 shadow-sm flex justify-between items-center z-10 lg:px-8">
+            <div class="flex items-center gap-4">
+                <h2 id="mobile-title" class="text-lg md:text-xl font-bold md:hidden">الطلبيات</h2>
+                <h2 id="desktop-title" class="hidden md:block text-2xl font-bold">الطلبيات النشطة</h2>
+                <div class="flex items-center gap-3 border-r border-gray-200 pr-3">
+                    <button onclick="loadDataFromGoogle()" class="text-vancyAccent hover:text-vancyDark transition" title="مزامنة البيانات من الخادم"><i class="fas fa-sync-alt text-lg"></i></button>
+                    <button onclick="exportToCSV()" class="text-vancyAccent hover:text-vancyDark transition" title="تصدير الصفحة الحالية كـ CSV"><i class="fas fa-file-csv text-xl"></i></button>
+                </div>
+            </div>
+            <div id="header-action-button"></div>
+        </header>
+
+        <div class="content-padding lg:p-8 flex-1 overflow-y-auto pb-24 md:pb-8 no-scrollbar">
+            <section id="view-orders" class="fade-in block">
+                <div class="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar" id="order-filters">
+                    <button onclick="filterOrders('all')" class="filter-btn active bg-vancyDark text-white px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap border border-vancyDark">الكل</button>
+                    <button onclick="filterOrders('قيد التجهيز')" class="filter-btn bg-white border border-vancyAccent text-vancyDark px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap hover:bg-vancyLight transition">قيد التجهيز</button>
+                    <button onclick="filterOrders('تم')" class="filter-btn bg-white border border-green-300 text-green-700 px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap hover:bg-green-50 transition">تم التسليم</button>
+                    <button onclick="filterOrders('ملغى')" class="filter-btn bg-white border border-red-300 text-red-600 px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap hover:bg-red-50 transition">ملغى</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3" id="orders-container"></div>
+            </section>
+
+            <section id="view-dashboard" class="fade-in hidden">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6" id="dashboard-stats"></div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-vancyAccent/20">
+                        <h3 class="font-bold text-sm md:text-base mb-4 text-vancyDark"><i class="fas fa-crown text-vancyAccent ml-1"></i> أفضل المنتجات مبيعاً</h3>
+                        <div class="relative h-48 md:h-56 w-full"><canvas id="topProductsChart"></canvas></div>
+                    </div>
+                    <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-vancyAccent/20">
+                        <h3 class="font-bold text-sm md:text-base mb-4 text-vancyDark"><i class="fas fa-chart-line text-vancyAccent ml-1"></i> مؤشر المشاهدات والتفاعل</h3>
+                        <div class="relative h-48 md:h-56 w-full"><canvas id="performanceChart"></canvas></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-inventory" class="fade-in hidden">
+                <div class="flex gap-3 mb-4 border-b border-vancyAccent/20 pb-2 overflow-x-auto no-scrollbar">
+                    <button id="tab-product" onclick="switchInvTab('product')" class="font-bold text-vancyDark border-b-2 border-vancyDark pb-2 px-2 transition whitespace-nowrap text-sm md:text-base">المنتجات (للبيع)</button>
+                    <button id="tab-food" onclick="switchInvTab('food')" class="font-bold text-gray-400 hover:text-vancyDark pb-2 px-2 transition whitespace-nowrap text-sm md:text-base">مشتريات (تغذية)</button>
+                    <button id="tab-pack" onclick="switchInvTab('pack')" class="font-bold text-gray-400 hover:text-vancyDark pb-2 px-2 transition whitespace-nowrap text-sm md:text-base">مشتريات (تغليف)</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="inventory-container"></div>
+            </section>
+
+            <section id="view-customers" class="fade-in hidden">
+                <div class="mb-4 relative">
+                    <input type="text" id="customerSearch" oninput="searchCustomers(this.value)" placeholder="ابحث بالاسم أو الجوال..." class="w-full bg-white border border-vancyAccent/30 rounded-xl py-2.5 px-4 pr-11 focus:outline-none focus:border-vancyDark shadow-sm text-sm">
+                    <i class="fas fa-search absolute right-4 top-3 text-gray-400"></i>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="customers-container"></div>
+            </section>
+        </div>
+    </main>
+
+    <nav class="bottom-nav fixed bottom-0 w-full bg-white border-t border-vancyAccent/30 flex justify-around items-center h-16 shadow-lg z-20" id="mobile-nav">
+        <button onclick="switchTab('orders')" id="mob-orders" class="mob-item flex flex-col items-center justify-center w-full h-full text-gray-400 transition"><i class="fas fa-shopping-bag text-xl mb-1"></i><span class="text-[10px] font-bold">الطلبيات</span></button>
+        <button onclick="switchTab('dashboard')" id="mob-dashboard" class="mob-item flex flex-col items-center justify-center w-full h-full text-gray-400 transition"><i class="fas fa-chart-line text-xl mb-1"></i><span class="text-[10px] font-bold">الأداء</span></button>
+        <button onclick="switchTab('inventory')" id="mob-inventory" class="mob-item flex flex-col items-center justify-center w-full h-full text-gray-400 transition"><i class="fas fa-boxes text-xl mb-1"></i><span class="text-[10px] font-bold">المخزون</span></button>
+        <button onclick="switchTab('customers')" id="mob-customers" class="mob-item flex flex-col items-center justify-center w-full h-full text-gray-400 transition"><i class="fas fa-users text-xl mb-1"></i><span class="text-[10px] font-bold">العملاء</span></button>
+    </nav>
+
+    <div id="orderModal" class="fixed inset-0 bg-vancyDark/60 backdrop-blur-sm z-50 hidden flex items-center justify-center transition-opacity p-4">
+        <div class="bg-white w-full md:w-[500px] rounded-2xl shadow-2xl p-5 max-h-full overflow-y-auto">
+            <div class="flex justify-between items-center mb-5"><h3 id="orderModalTitle" class="text-lg font-bold text-vancyDark">تسجيل طلب جديد</h3><button onclick="toggleModal('orderModal')" class="text-gray-400 hover:text-red-500 text-2xl">&times;</button></div>
+            <form class="space-y-3">
+                <input type="hidden" id="order-id">
+                <div class="flex gap-2"><div class="flex-1"><label class="block text-xs font-bold mb-1">العميل</label><select id="order-customer" class="w-full border rounded-lg p-2.5 bg-vancyLight/50 focus:border-vancyDark text-sm"></select></div><div class="w-1/3"><label class="block text-xs font-bold mb-1">التسليم</label><input type="date" id="order-date" class="w-full border rounded-lg p-2.5 bg-vancyLight/50 focus:border-vancyDark text-sm"></div></div>
+                <div class="flex gap-2"><div class="flex-1"><label class="block text-xs font-bold mb-1">المنتج</label><select id="order-product" onchange="calculateOrderTotal()" class="w-full border rounded-lg p-2.5 bg-vancyLight/50 focus:border-vancyDark text-sm"></select></div><div class="w-20"><label class="block text-xs font-bold mb-1">الكمية</label><input type="number" id="order-qty" value="1" min="1" onchange="calculateOrderTotal()" class="w-full border rounded-lg p-2.5 text-center bg-vancyLight/50 focus:border-vancyDark text-sm"></div></div>
+                <div class="flex items-center bg-gray-50 p-2.5 rounded-lg border border-gray-200"><span class="text-xs font-bold text-gray-600">الإجمالي:</span><span id="order-total-price" class="font-bold text-base text-vancyDark mr-auto ml-1">0</span><span class="text-vancyDark text-xs font-bold">﷼</span></div>
+                <div class="flex gap-2">
+                    <div class="flex-1"><label class="block text-xs font-bold mb-1">الدفع</label><div class="flex gap-2"><label class="flex-1 p-2 border rounded-lg cursor-pointer text-center text-xs font-bold bg-green-50 text-green-700"><input type="radio" name="order-payment" value="مدفوع" checked class="hidden"> مدفوع</label><label class="flex-1 p-2 border rounded-lg cursor-pointer text-center text-xs font-bold hover:bg-red-50 text-gray-600"><input type="radio" name="order-payment" value="آجل" class="hidden"> آجل</label></div></div>
+                    <div class="flex-1"><label class="block text-xs font-bold mb-1">الحالة</label><select id="order-status" class="w-full border rounded-lg p-2.5 font-bold bg-vancyLight focus:border-vancyDark text-sm"><option value="قيد التجهيز">قيد التجهيز</option><option value="تم">تم التسليم</option><option value="ملغى">ملغى</option></select></div>
+                </div>
+                <div class="pt-2 mt-2 flex gap-2"><button type="button" onclick="saveOrder()" class="flex-1 bg-vancyDark text-white font-bold py-2.5 rounded-lg hover:bg-vancyAccent transition text-sm">حفظ الطلب</button><button type="button" id="btn-delete-order" onclick="deleteItem('orders')" class="hidden bg-red-50 text-red-600 font-bold py-2.5 px-4 rounded-lg border border-red-200 hover:bg-red-100 transition"><i class="fas fa-trash-alt"></i></button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="socialModal" class="fixed inset-0 bg-vancyDark/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full md:w-[400px] rounded-2xl shadow-2xl p-5 max-h-full overflow-y-auto">
+            <div class="flex justify-between items-center mb-5"><h3 class="text-lg font-bold text-vancyDark">إدخال التفاعل</h3><button onclick="toggleModal('socialModal')" class="text-gray-400 text-2xl">&times;</button></div>
+            <form class="space-y-3">
+                <input type="hidden" id="social-id">
+                <div class="flex gap-2"><div class="flex-1"><label class="block text-xs font-bold mb-1">تاريخ النشر</label><input type="date" id="social-date" class="w-full border rounded-lg p-2.5 bg-vancyLight/50 text-sm focus:border-vancyDark"></div><div class="flex-1"><label class="block text-xs font-bold mb-1">المنصة</label><select id="social-platform" class="w-full border rounded-lg p-2.5 bg-vancyLight/50 text-sm focus:border-vancyDark"><option value="TikTok">تيك توك</option><option value="Instagram">إنستقرام</option></select></div></div>
+                <div><label class="block text-xs font-bold mb-1">رابط المنشور</label><input type="url" id="social-link" class="w-full border rounded-lg p-2.5 bg-vancyLight/50 text-sm focus:border-vancyDark text-left" placeholder="https://..." dir="ltr"></div>
+                <div class="flex gap-2"><div class="flex-1"><label class="block text-xs font-bold mb-1">المشاهدات</label><input type="number" id="social-views" class="w-full border rounded-lg p-2.5 text-center text-sm focus:border-vancyDark" placeholder="0"></div><div class="flex-1"><label class="block text-xs font-bold mb-1">التعليقات</label><input type="number" id="social-comments" class="w-full border rounded-lg p-2.5 text-center text-sm focus:border-vancyDark" placeholder="0"></div></div>
+                <div class="pt-2 mt-2 flex gap-2"><button type="button" onclick="saveSocial()" class="flex-1 bg-vancyDark text-white font-bold py-2.5 rounded-lg hover:bg-vancyAccent text-sm">حفظ الأرقام</button><button type="button" id="btn-delete-social" onclick="deleteItem('social')" class="hidden bg-red-50 text-red-600 font-bold py-2.5 px-4 rounded-lg border border-red-200"><i class="fas fa-trash-alt"></i></button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="inventoryModal" class="fixed inset-0 bg-vancyDark/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full md:w-[400px] rounded-2xl shadow-2xl p-5">
+            <div class="flex justify-between items-center mb-5"><h3 id="invModalTitle" class="text-lg font-bold text-vancyDark">إضافة عنصر</h3><button onclick="toggleModal('inventoryModal')" class="text-gray-400 text-2xl">&times;</button></div>
+            <form class="space-y-3">
+                <input type="hidden" id="inv-id">
+                <div><label class="block text-xs font-bold mb-1">القسم</label><select id="inv-type" onchange="toggleInvPrice()" class="w-full border p-2.5 rounded-lg bg-vancyLight/50 text-sm font-bold"><option value="product">المنتجات (جاهزة للبيع)</option><option value="food">مشتريات (مواد وحشوات)</option><option value="pack">مشتريات (تغليف وعلب)</option></select></div>
+                <div><label class="text-xs font-bold mb-1">الاسم / الصنف</label><input type="text" id="inv-item" class="w-full border p-2.5 rounded-lg text-sm focus:border-vancyDark"></div>
+                <div class="flex gap-2"><div class="flex-1"><label class="text-xs font-bold mb-1">الكمية المتوفرة</label><input type="number" id="inv-qty" class="w-full border p-2.5 rounded-lg text-center text-sm focus:border-vancyDark" placeholder="0"></div><div class="flex-1"><label class="text-xs font-bold mb-1">التكلفة الشاملة</label><input type="number" id="inv-cost" class="w-full border p-2.5 rounded-lg text-sm focus:border-vancyDark" placeholder="ريال"></div></div>
+                <div id="inv-price-container"><label class="text-xs font-bold mb-1 text-vancyDark">سعر البيع للعميل (للحبة)</label><input type="number" id="inv-price" class="w-full border border-vancyAccent p-2.5 rounded-lg font-bold text-vancyDark bg-vancyLight/50 text-sm focus:border-vancyDark" placeholder="ريال"></div>
+                <div class="pt-2 flex gap-2"><button type="button" onclick="saveInventory()" class="flex-1 bg-vancyDark text-white font-bold py-2.5 rounded-lg text-sm hover:bg-vancyAccent">حفظ العنصر</button><button type="button" id="btn-delete-inv" onclick="deleteItem('inventory')" class="hidden bg-red-50 text-red-600 font-bold py-2.5 px-4 rounded-lg border border-red-200"><i class="fas fa-trash-alt"></i></button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="customerModal" class="fixed inset-0 bg-vancyDark/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full md:w-[350px] rounded-2xl shadow-2xl p-5">
+            <div class="flex justify-between items-center mb-5"><h3 id="custModalTitle" class="text-lg font-bold text-vancyDark">بيانات العميل</h3><button onclick="toggleModal('customerModal')" class="text-gray-400 text-2xl">&times;</button></div>
+            <form class="space-y-3">
+                <input type="hidden" id="cust-id">
+                <div><label class="text-xs font-bold">الاسم</label><input type="text" id="cust-name" class="w-full border p-2.5 rounded-lg text-sm focus:border-vancyDark"></div>
+                <div><label class="text-xs font-bold">الجوال</label><input type="tel" id="cust-phone" class="w-full border p-2.5 text-right rounded-lg text-sm focus:border-vancyDark" placeholder="05xxxxxxxx"></div>
+                <div class="pt-2 flex gap-2"><button type="button" onclick="saveCustomer()" class="flex-1 bg-vancyDark text-white font-bold py-2.5 rounded-lg text-sm hover:bg-vancyAccent">حفظ العميل</button><button type="button" id="btn-delete-cust" onclick="deleteItem('customers')" class="hidden bg-red-50 text-red-600 font-bold py-2.5 px-4 rounded-lg border border-red-200"><i class="fas fa-trash-alt"></i></button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="manaAlertModal" class="fixed inset-0 bg-vancyDark/80 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-white w-[90%] md:w-[350px] rounded-2xl shadow-2xl p-6 text-center transform transition-transform">
+            <div id="manaAlertIcon" class="w-14 h-14 bg-vancyLight text-vancyDark rounded-full flex items-center justify-center mx-auto mb-3 text-2xl"><i class="fas fa-bell"></i></div>
+            <h3 class="text-lg font-bold text-vancyDark mb-2">Vancy</h3>
+            <p id="manaAlertMessage" class="text-sm text-gray-600 mb-5 leading-relaxed"></p>
+            <button onclick="closeManaAlert()" class="w-full bg-vancyDark text-white font-bold py-2.5 rounded-lg hover:bg-vancyAccent transition text-sm">حسناً</button>
+        </div>
+    </div>
+
+    <div id="manaConfirmModal" class="fixed inset-0 bg-vancyDark/80 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-white w-[90%] md:w-[350px] rounded-2xl shadow-2xl p-6 text-center transform transition-transform">
+            <div class="w-14 h-14 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3 class="text-lg font-bold text-vancyDark mb-2">Vancy</h3>
+            <p id="manaConfirmMessage" class="text-sm text-gray-600 mb-5 leading-relaxed"></p>
+            <div class="flex gap-2">
+                <button id="manaConfirmBtn" class="flex-1 bg-red-500 text-white font-bold py-2.5 rounded-lg hover:bg-red-600 transition text-sm">تأكيد الحذف</button>
+                <button onclick="closeManaConfirm()" class="flex-1 bg-gray-100 text-gray-700 font-bold py-2.5 rounded-lg hover:bg-gray-200 transition text-sm">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="invoice-template-container">
+        <div id="invoice-content" class="bg-white" style="direction: rtl;">
+            <div class="border-b-4 border-[#2c4635] pb-6 mb-6 flex justify-between items-start">
+                <div class="flex items-center gap-4">
+                    <div class="w-24 h-24 rounded-full border-2 border-[#2c4635] bg-[#f4f3e6] overflow-hidden flex items-center justify-center p-1">
+                        <img src="Vancy.jpg" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <h1 class="text-4xl font-bold text-[#2c4635] tracking-wider uppercase mb-1">Vancy</h1>
+                        <p class="text-gray-500 font-bold text-lg">نظام الإدارة المتميز</p>
+                    </div>
+                </div>
+                <div class="text-left">
+                    <h2 class="text-4xl font-bold text-gray-300 mb-2" id="pdf-type-title">فاتورة</h2>
+                    <p class="text-gray-600 font-bold text-lg">التاريخ: <span id="pdf-date"></span></p>
+                </div>
+            </div>
+            <div class="bg-[#f4f3e6] p-5 rounded-lg mb-8 border border-[#4a6b54]">
+                <p class="font-bold text-xl text-[#2c4635] mb-2">العميل: <span id="pdf-cust-name"></span></p>
+                <p class="text-gray-600 font-bold text-lg">الجوال: <span id="pdf-cust-phone" dir="ltr"></span></p>
+            </div>
+            <table class="w-full mb-8 border-collapse text-lg">
+                <thead><tr class="bg-[#2c4635] text-white"><th class="p-4 text-right rounded-tr-lg">المنتج / التفاصيل</th><th class="p-4 text-center">الكمية</th><th class="p-4 text-center">الحالة</th><th class="p-4 text-left rounded-tl-lg">السعر</th></tr></thead>
+                <tbody id="pdf-table-body"></tbody>
+            </table>
+            <div class="flex justify-end mb-10"><div class="bg-gray-50 p-5 border rounded-lg w-72 text-center border-[#4a6b54]"><p class="text-base text-gray-500 mb-2 font-bold" id="pdf-total-label">الإجمالي</p><h3 class="text-3xl font-bold text-[#2c4635]"><span id="pdf-total"></span> ﷼</h3></div></div>
+            <div class="mt-12 pt-6 border-t border-gray-200 text-center text-gray-500 font-bold text-lg"><p>شكراً لثقتكم في Vancy. يسعدنا خدمتكم مجدداً.</p></div>
+        </div>
+    </div>
+
+    <script>
+        // ======= ضع الرابط الجديد لجوجل سكريبت هنا =======
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzbaAYuImLYNwZvaRAgOReya7rHSla6Z03c2TExUkD2bQwL31HmjZtxU0JLuJREoZqs/exec"; 
+        // =================================================
+
+        let customersData = []; let inventoryData = []; let ordersData = []; let socialData = []; 
+        let currentTab = 'orders'; let currentInvTab = 'product'; let performanceChartInstance = null;
+
+        async function loadDataFromGoogle() {
+            if(GOOGLE_SCRIPT_URL === "ضع_الرابط_الجديد_هنا") { showManaAlert("تنبيه: يجب وضع رابط Google Script الجديد في الكود."); return; }
+            showManaAlert("جاري مزامنة البيانات مع الخادم..."); document.getElementById('manaAlertIcon').innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL); const data = await response.json();
+                if(data) { if(data.orders) ordersData = data.orders; if(data.inventory) inventoryData = data.inventory; if(data.customers) customersData = data.customers; if(data.social) socialData = data.social; }
+                renderOrders(); renderInventory(); renderCustomers(); renderDashboardChart();
+                document.getElementById('manaAlertIcon').innerHTML = '<i class="fas fa-check text-green-500"></i>'; document.getElementById('manaAlertMessage').innerText = "تم تحديث البيانات بنجاح."; setTimeout(closeManaAlert, 1500);
+            } catch (error) { document.getElementById('manaAlertIcon').innerHTML = '<i class="fas fa-exclamation-triangle text-red-500"></i>'; document.getElementById('manaAlertMessage').innerText = "تعذر الاتصال. يتم عرض البيانات المحلية."; setTimeout(closeManaAlert, 3000); }
+        }
+
+        function showManaAlert(message) { document.getElementById('manaAlertIcon').innerHTML = '<i class="fas fa-bell"></i>'; document.getElementById('manaAlertMessage').innerText = message; document.getElementById('manaAlertModal').classList.remove('hidden'); }
+        function closeManaAlert() { document.getElementById('manaAlertModal').classList.add('hidden'); }
+        let confirmActionCallback = null;
+        function showManaConfirm(message, callback) { document.getElementById('manaConfirmMessage').innerText = message; document.getElementById('manaConfirmModal').classList.remove('hidden'); confirmActionCallback = callback; }
+        function closeManaConfirm() { document.getElementById('manaConfirmModal').classList.add('hidden'); confirmActionCallback = null; }
+        document.getElementById('manaConfirmBtn').addEventListener('click', function() { if(confirmActionCallback) confirmActionCallback(); closeManaConfirm(); });
+
+        function switchTab(tabName) {
+            currentTab = tabName; const tabs = ['orders', 'dashboard', 'inventory', 'customers'];
+            tabs.forEach(t => { document.getElementById('view-' + t).classList.add('hidden'); document.getElementById('nav-' + t).className = "nav-item w-full flex items-center space-x-3 space-x-reverse p-3 rounded-lg font-bold transition text-gray-400 hover:bg-vancyLight hover:text-vancyDark text-sm lg:text-base"; document.getElementById('mob-' + t).className = "mob-item flex flex-col items-center justify-center w-full h-full transition text-gray-400"; });
+            document.getElementById('view-' + tabName).classList.remove('hidden'); document.getElementById('nav-' + tabName).className = "nav-item w-full flex items-center space-x-3 space-x-reverse p-3 rounded-lg font-bold transition bg-vancyLight text-vancyDark border-r-4 border-vancyDark text-sm lg:text-base"; document.getElementById('mob-' + tabName).className = "mob-item flex flex-col items-center justify-center w-full h-full transition text-vancyDark border-t-2 border-vancyDark";
+            const config = { 'orders': { title: 'الطلبيات النشطة', mTitle: 'الطلبيات', modal: 'orderModal', btn: 'طلب جديد', icon: 'fa-plus' }, 'dashboard': { title: 'التحليل والأداء', mTitle: 'الأداء', modal: 'socialModal', btn: 'إدخال المشاهدات', icon: 'fa-hashtag' }, 'inventory': { title: 'إدارة المخزون', mTitle: 'المخزون', modal: 'inventoryModal', btn: 'عنصر جديد', icon: 'fa-plus' }, 'customers': { title: 'سجل العملاء', mTitle: 'العملاء', modal: 'customerModal', btn: 'عميل جديد', icon: 'fa-user-plus' } };
+            document.getElementById('desktop-title').innerText = config[tabName].title; document.getElementById('mobile-title').innerText = config[tabName].mTitle;
+            const btnContainer = document.getElementById('header-action-button'); if(config[tabName].btn) { btnContainer.innerHTML = `<button onclick="openModalForAdd('${config[tabName].modal}')" class="bg-vancyDark text-white px-4 py-2 rounded-full text-xs md:text-sm font-bold shadow-md hover:bg-vancyAccent transition"><i class="fas ${config[tabName].icon} ml-1"></i> ${config[tabName].btn}</button>`; } else { btnContainer.innerHTML = ''; }
+            if(tabName === 'dashboard') renderDashboardChart(); if(tabName === 'orders') renderOrders(); if(tabName === 'inventory') renderInventory(); if(tabName === 'customers') renderCustomers();
+        }
+
+        function exportToCSV() {
+            let dataToExport = []; let headers = []; let filename = '';
+            if (currentTab === 'orders') { headers = ['المعرف', 'التاريخ', 'العميل', 'المنتج', 'الكمية', 'السعر', 'الحالة', 'الدفع']; dataToExport = ordersData.map(o => [o.id, o.date ? o.date.split('T')[0] : '', o.customer, o.product, o.qty, o.price, o.status, o.payment]); filename = 'الطلبيات'; } 
+            else if (currentTab === 'inventory') { headers = ['المعرف', 'الصنف', 'القسم', 'الكمية', 'التكلفة', 'سعر البيع']; dataToExport = inventoryData.map(i => [i.id, i.item, i.type, i.qty, i.cost || 0, i.price || 0]); filename = 'المخزون'; } 
+            else if (currentTab === 'customers') { headers = ['المعرف', 'الاسم', 'الجوال']; dataToExport = customersData.map(c => [c.id, c.name, c.phone]); filename = 'العملاء'; } 
+            else if (currentTab === 'dashboard') { headers = ['المعرف', 'التاريخ', 'المنصة', 'الرابط', 'المشاهدات', 'التعليقات']; dataToExport = socialData.map(s => [s.id, s.date ? s.date.split('T')[0] : '', s.platform, s.link || '', s.views, s.comments || 0]); filename = 'بيانات_التفاعل'; }
+            if (dataToExport.length === 0) return showManaAlert("لا توجد بيانات متاحة للتصدير.");
+            let csvContent = "\uFEFF" + headers.join(',') + '\n'; dataToExport.forEach(row => { csvContent += row.map(val => `"${(val||'').toString().replace(/"/g, '""')}"`).join(',') + '\n'; });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", `Vancy_${filename}_${new Date().toLocaleDateString('en-GB').replace(/\//g,'-')}.csv`); link.style.visibility = 'hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link); showManaAlert(`تم تصدير ملف ${filename}.csv بنجاح.`);
+        }
+
+        function renderOrders(filter = 'all') {
+            const container = document.getElementById('orders-container'); container.innerHTML = ''; let filtered = ordersData;
+            if(filter === 'قيد التجهيز') filtered = ordersData.filter(o => o.status === 'قيد التجهيز'); if(filter === 'تم') filtered = ordersData.filter(o => o.status === 'تم'); if(filter === 'ملغى') filtered = ordersData.filter(o => o.status === 'ملغى'); if(filter === 'آجل') filtered = ordersData.filter(o => o.payment === 'آجل' && o.status !== 'ملغى');
+            if(filtered.length === 0) { container.innerHTML = `<div class="col-span-full text-center p-8 text-gray-400">لا توجد طلبات لعرضها</div>`; return; }
+            filtered.forEach(o => {
+                let statusStyle = 'bg-gray-100 text-gray-600'; if(o.status === 'قيد التجهيز') statusStyle = 'bg-blue-50 text-blue-600 border-blue-200'; if(o.status === 'تم') statusStyle = 'bg-green-50 text-green-600 border-green-200'; if(o.status === 'ملغى') statusStyle = 'bg-red-50 text-red-600 border-red-200 line-through';
+                const isAjel = (o.payment === 'آجل' && o.status !== 'ملغى'); const c = customersData.find(cust => cust.name === o.customer) || { phone: '' };
+                container.innerHTML += `<div onclick="editOrder('${o.id}')" class="cursor-pointer bg-white p-3 rounded-xl shadow-sm border ${isAjel ? 'border-red-300' : 'border-vancyAccent/30'} hover:shadow-md transition"><div class="flex justify-between items-start mb-2"><div><span class="text-[10px] font-bold text-gray-400">#${o.id.toString().substring(0,6)}</span><h3 class="font-bold text-vancyDark text-base leading-tight">${o.customer}</h3></div><span class="text-[10px] font-bold px-2 py-1 rounded border ${statusStyle}">${o.status}</span></div><div class="border-t border-gray-50 py-2 mb-2"><p class="text-sm text-gray-700 leading-tight"><i class="fas fa-box ml-1 text-vancyAccent text-xs"></i> ${o.qty}x ${o.product}</p><p class="text-[10px] text-gray-400 mt-1"><i class="fas fa-calendar-check ml-1"></i> التسليم: <b class="text-vancyDark">${o.date ? o.date.split('T')[0] : 'غير محدد'}</b></p></div><div class="flex justify-between items-center mb-2"><p class="font-bold text-base ${isAjel ? 'text-red-600' : 'text-vancyDark'}">${o.price} ﷼</p><span class="text-[10px] font-bold ${o.payment === 'مدفوع' ? 'text-green-600' : 'text-red-500'}">${o.payment}</span></div><div class="flex gap-2 border-t border-gray-50 pt-2 mt-1"><button onclick="generateOrderInvoice('${o.id}', event)" class="flex-1 bg-gray-50 text-gray-600 text-[10px] font-bold py-1.5 rounded border hover:bg-gray-100 transition"><i class="fas fa-file-invoice text-vancyDark ml-1"></i> فاتورة</button><button onclick="sendWhatsApp('${c.phone}', 'مرحباً ${o.customer}، تم تسجيل طلبك. الإجمالي: ${o.price} ريال. شكراً لاختيارك Vancy.', event)" class="flex-1 bg-green-50 text-green-700 text-[10px] font-bold py-1.5 rounded border border-green-200 hover:bg-green-100 transition"><i class="fab fa-whatsapp text-sm ml-1"></i> إرسال</button></div></div>`;
+            });
+        }
+        function filterOrders(t) { document.querySelectorAll('#order-filters button').forEach(b => { b.className = "filter-btn bg-white border border-vancyAccent text-vancyDark px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap hover:bg-vancyLight transition"; }); event.target.className = "filter-btn active bg-vancyDark text-white px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap border border-vancyDark transition"; renderOrders(t); }
+
+        function renderCustomers(search = '') {
+            const container = document.getElementById('customers-container'); container.innerHTML = ''; if(customersData.length === 0) { container.innerHTML = `<div class="col-span-full text-center p-8 text-gray-400">سجل العملاء فارغ</div>`; return; }
+            customersData.filter(c => c.name.includes(search) || c.phone.includes(search)).forEach(c => {
+                let custOrders = ordersData.filter(o => o.customer === c.name && o.status !== 'ملغى'); let debt = custOrders.filter(o => o.payment === 'آجل').reduce((sum, o) => sum + parseFloat(o.price || 0), 0); const isDebt = debt > 0;
+                container.innerHTML += `<div onclick="editCustomer('${c.id}')" class="bg-white p-3 rounded-xl shadow-sm border ${isDebt ? 'border-red-300' : 'border-vancyAccent/20'} relative cursor-pointer hover:shadow-md transition"><div class="flex justify-between items-start mb-2"><div><h3 class="font-bold text-vancyDark text-base leading-tight">${c.name}</h3><p class="text-[10px] text-gray-500 mt-0.5" dir="ltr">${c.phone}</p></div><button onclick="quickOrder('${c.name}', event)" class="bg-vancyLight w-8 h-8 rounded-full flex items-center justify-center text-vancyDark hover:bg-vancyAccent hover:text-white transition shadow-sm" title="طلب جديد سريع"><i class="fas fa-cart-plus text-sm"></i></button></div><div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-50 mb-2"><div><p class="text-[10px] text-gray-400">الطلبات</p><p class="font-bold text-sm text-vancyDark">${custOrders.length}</p></div><div class="text-left"><p class="text-[10px] text-gray-400">المبالغ الآجلة</p><p class="font-bold text-sm ${isDebt ? 'text-red-600' : 'text-green-600'}">${debt} ﷼</p></div></div><div class="flex gap-2 border-t border-gray-50 pt-2 mt-1"><button onclick="generateStatement('${c.id}', event)" class="flex-1 bg-gray-50 text-gray-600 text-[10px] font-bold py-1.5 rounded border hover:bg-gray-100 transition"><i class="fas fa-file-invoice-dollar text-vancyDark ml-1"></i> كشف حساب</button><button onclick="sendWhatsApp('${c.phone}', 'مرحباً ${c.name}، للتذكير اللطيف إجمالي المبالغ الآجلة في حسابكم هو: ${debt} ريال. نشكر ثقتكم في Vancy.', event)" class="${isDebt ? 'flex-1 bg-green-50 text-green-700 text-[10px] font-bold py-1.5 rounded border border-green-200 hover:bg-green-100' : 'hidden'} transition"><i class="fab fa-whatsapp text-sm ml-1"></i> مطالبة</button></div></div>`;
+            });
+        }
+        function searchCustomers(v) { renderCustomers(v); }
+        function quickOrder(name, ev) { ev.stopPropagation(); openModalForAdd('orderModal'); document.getElementById('order-customer').value = name; }
+        function sendWhatsApp(phone, msg, ev) { ev.stopPropagation(); if(!phone) return showManaAlert("لا يوجد رقم جوال مسجل."); window.open(`https://wa.me/${phone.trim().replace(/^0/,'966')}?text=${encodeURIComponent(msg)}`, '_blank'); }
+
+        function renderInventory() {
+            const container = document.getElementById('inventory-container'); container.innerHTML = ''; let filtered = inventoryData.filter(i => i.type === currentInvTab); if(filtered.length === 0) { container.innerHTML = `<div class="col-span-full text-center p-8 text-gray-400">القسم فارغ</div>`; return; }
+            filtered.forEach(i => {
+                let iconClass = i.type === 'product' ? 'fa-star' : (i.type === 'food' ? 'fa-hamburger' : 'fa-box-open'); let priceHtml = i.type === 'product' ? `<div class="text-left"><p class="text-[10px] text-gray-400">سعر البيع</p><p class="font-bold text-vancyDark text-sm">${i.price || 0} ﷼</p></div>` : `<div class="text-left"><p class="text-[10px] text-gray-400">التكلفة</p><p class="font-bold text-vancyDark text-sm">${i.cost || 0} ﷼</p></div>`;
+                container.innerHTML += `<div onclick="editInventory('${i.id}')" class="cursor-pointer bg-white border-vancyAccent/20 p-3 rounded-xl shadow-sm border transition hover:shadow-md"><div class="flex items-center gap-3 mb-2"><div class="bg-vancyLight w-8 h-8 rounded-lg flex items-center justify-center text-vancyAccent"><i class="fas ${iconClass} text-sm"></i></div><h3 class="font-bold text-vancyDark text-sm leading-tight">${i.item}</h3></div><div class="flex justify-between border-t border-gray-50 pt-2 mt-1"><div><p class="text-[10px] text-gray-400">المتوفر</p><p class="font-bold text-sm">${i.qty}</p></div>${priceHtml}</div></div>`;
+            });
+        }
+        function switchInvTab(t) { currentInvTab = t; ['product', 'food', 'pack'].forEach(tab => { document.getElementById(`tab-${tab}`).className = 'font-bold text-gray-400 pb-2 px-2 hover:text-vancyDark transition whitespace-nowrap text-sm md:text-base'; }); document.getElementById(`tab-${t}`).className = 'font-bold text-vancyDark border-b-2 border-vancyDark pb-2 px-2 transition whitespace-nowrap text-sm md:text-base'; renderInventory(); }
+        function toggleInvPrice() { const t = document.getElementById('inv-type').value; if(t==='product') document.getElementById('inv-price-container').classList.remove('hidden'); else { document.getElementById('inv-price-container').classList.add('hidden'); document.getElementById('inv-price').value = ''; } }
+
+        function toggleModal(id) { document.getElementById(id).classList.toggle('hidden'); }
+        function populateOrderDropdowns() { document.getElementById('order-customer').innerHTML = '<option value="">اختر العميل...</option>' + customersData.map(c => `<option value="${c.name}">${c.name}</option>`).join(''); document.getElementById('order-product').innerHTML = '<option value="" data-price="0">اختر المنتج...</option>' + inventoryData.filter(i => i.type === 'product').map(p => `<option value="${p.item}" data-price="${p.price || 0}">${p.item}</option>`).join(''); }
+        function calculateOrderTotal() { const sel = document.getElementById('order-product'); if(!sel.options[sel.selectedIndex]) return; document.getElementById('order-total-price').innerText = (parseFloat(sel.options[sel.selectedIndex].getAttribute('data-price')) || 0) * (parseInt(document.getElementById('order-qty').value) || 1); }
+
+        function openModalForAdd(id) {
+            document.querySelectorAll(`#${id} input:not([type=radio]), #${id} select`).forEach(i => i.value = "");
+            if(id === 'orderModal') { document.getElementById('order-id').value = ""; populateOrderDropdowns(); document.getElementById('order-qty').value = "1"; document.getElementById('order-total-price').innerText = "0"; document.getElementById('order-status').value = "قيد التجهيز"; document.getElementById('btn-delete-order').classList.add('hidden'); document.getElementById('order-date').value = new Date().toISOString().split('T')[0]; } 
+            else if (id === 'inventoryModal') { document.getElementById('inv-id').value = ""; document.getElementById('inv-type').value = currentInvTab; toggleInvPrice(); document.getElementById('btn-delete-inv').classList.add('hidden'); } 
+            else if (id === 'customerModal') { document.getElementById('cust-id').value = ""; document.getElementById('btn-delete-cust').classList.add('hidden'); }
+            else if (id === 'socialModal') { document.getElementById('social-id').value = ""; document.getElementById('social-date').value = new Date().toISOString().split('T')[0]; document.getElementById('social-platform').value = "TikTok"; document.getElementById('btn-delete-social').classList.add('hidden'); }
+            toggleModal(id);
+        }
+
+        function editOrder(id) { populateOrderDropdowns(); const o = ordersData.find(x => x.id == id); document.getElementById('order-id').value = o.id; document.getElementById('order-customer').value = o.customer; document.getElementById('order-product').value = o.product; document.getElementById('order-qty').value = o.qty; document.getElementById('order-date').value = o.date ? o.date.split('T')[0] : ''; document.getElementById('order-status').value = o.status; document.querySelector(`input[name="order-payment"][value="${o.payment}"]`).checked = true; document.getElementById('order-total-price').innerText = o.price; document.getElementById('btn-delete-order').classList.remove('hidden'); toggleModal('orderModal'); }
+        function editInventory(id) { const i = inventoryData.find(x => x.id == id); document.getElementById('inv-id').value = i.id; document.getElementById('inv-type').value = i.type; document.getElementById('inv-item').value = i.item; document.getElementById('inv-qty').value = i.qty; document.getElementById('inv-cost').value = i.cost || ''; document.getElementById('inv-price').value = i.price || ''; toggleInvPrice(); document.getElementById('btn-delete-inv').classList.remove('hidden'); toggleModal('inventoryModal'); }
+        function editCustomer(id) { const c = customersData.find(x => x.id == id); document.getElementById('cust-id').value = c.id; document.getElementById('cust-name').value = c.name; document.getElementById('cust-phone').value = c.phone; document.getElementById('btn-delete-cust').classList.remove('hidden'); toggleModal('customerModal'); }
+
+        function deleteItem(type) {
+            showManaConfirm("هل أنت متأكد من الحذف؟", function() {
+                let idToDelete = null; let targetSheet = '';
+                if(type === 'orders') { idToDelete = document.getElementById('order-id').value; targetSheet = 'orders'; ordersData = ordersData.filter(o => o.id != idToDelete); renderOrders(); toggleModal('orderModal'); renderCustomers(); } 
+                else if(type === 'inventory') { idToDelete = document.getElementById('inv-id').value; targetSheet = 'purchases'; inventoryData = inventoryData.filter(i => i.id != idToDelete); renderInventory(); toggleModal('inventoryModal'); } 
+                else if(type === 'customers') { idToDelete = document.getElementById('cust-id').value; targetSheet = 'customers'; customersData = customersData.filter(c => c.id != idToDelete); renderCustomers(); toggleModal('customerModal'); }
+                else if(type === 'social') { idToDelete = document.getElementById('social-id').value; targetSheet = 'social'; socialData = socialData.filter(s => s.id != idToDelete); renderDashboardChart(); toggleModal('socialModal'); }
+                if(idToDelete) { sendDataToGoogle('delete', { id: idToDelete.toString(), sheetName: targetSheet }); } showManaAlert("تم الحذف.");
+            });
+        }
+
+        function saveOrder() { const id = document.getElementById('order-id').value; const data = { customer: document.getElementById('order-customer').value, product: document.getElementById('order-product').value, qty: document.getElementById('order-qty').value, price: document.getElementById('order-total-price').innerText, date: document.getElementById('order-date').value, status: document.getElementById('order-status').value, payment: document.querySelector('input[name="order-payment"]:checked').value }; if(!data.customer || !data.product) return showManaAlert("الرجاء اختيار العميل والمنتج."); if(id) { data.id = id; Object.assign(ordersData.find(x=>x.id==id), data); } else { data.id = Date.now().toString(); ordersData.unshift(data); } renderOrders(); toggleModal('orderModal'); renderCustomers(); renderDashboardChart(); sendDataToGoogle('orders', data); }
+        function saveInventory() { const id = document.getElementById('inv-id').value; const data = { item: document.getElementById('inv-item').value, qty: document.getElementById('inv-qty').value, cost: document.getElementById('inv-cost').value, price: document.getElementById('inv-price').value, type: document.getElementById('inv-type').value }; if(!data.item) return showManaAlert("يرجى كتابة الاسم."); if(id) { data.id = id; Object.assign(inventoryData.find(x=>x.id==id), data); } else { data.id = Date.now().toString(); data.unit = data.type === 'pack' ? 'حبة' : 'كمية'; inventoryData.unshift(data); } renderInventory(); toggleModal('inventoryModal'); sendDataToGoogle('purchases', data); }
+        function saveCustomer() { const id = document.getElementById('cust-id').value; const data = { name: document.getElementById('cust-name').value, phone: document.getElementById('cust-phone').value }; if(!data.name) return showManaAlert("يرجى كتابة الاسم."); if(id) { data.id = id; Object.assign(customersData.find(x=>x.id==id), data); } else { data.id = Date.now().toString(); customersData.unshift(data); } renderCustomers(); toggleModal('customerModal'); sendDataToGoogle('customers', data); }
+        function saveSocial() { const id = document.getElementById('social-id').value; const data = { date: document.getElementById('social-date').value, platform: document.getElementById('social-platform').value, link: document.getElementById('social-link').value, views: document.getElementById('social-views').value, comments: document.getElementById('social-comments').value }; if(!data.views) return showManaAlert("يرجى إدخال المشاهدات."); if(id) { data.id = id; Object.assign(socialData.find(x=>x.id==id), data); } else { data.id = Date.now().toString(); socialData.unshift(data); } renderDashboardChart(); toggleModal('socialModal'); sendDataToGoogle('social', data); showManaAlert("تم الحفظ."); }
+
+        async function sendDataToGoogle(act, dat) { dat.action = act; try { fetch(GOOGLE_SCRIPT_URL, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify(dat) }); } catch(e){} }
+
+        function renderDashboardChart() {
+            const container = document.getElementById('dashboard-stats');
+            let cashIn = ordersData.filter(o => o.payment === 'مدفوع' && o.status !== 'ملغى').reduce((sum, o) => sum + parseFloat(o.price || 0), 0);
+            let totalDebt = ordersData.filter(o => o.payment === 'آجل' && o.status !== 'ملغى').reduce((sum, o) => sum + parseFloat(o.price || 0), 0);
+            let pendingOrders = ordersData.filter(o => o.status === 'قيد التجهيز').length;
+            let totalViews = socialData.reduce((sum, s) => sum + parseInt(s.views || 0), 0); let totalComments = socialData.reduce((sum, s) => sum + parseInt(s.comments || 0), 0);
+
+            container.innerHTML = `<div class="bg-white p-4 rounded-xl shadow-sm border border-vancyAccent/20 text-center"><p class="text-xs text-gray-500 mb-1">السيولة (مدفوع)</p><h3 class="text-lg font-bold text-green-600">${cashIn} ﷼</h3></div><div class="bg-white p-4 rounded-xl shadow-sm border border-vancyAccent/20 text-center"><p class="text-xs text-gray-500 mb-1">الديون (آجل)</p><h3 class="text-lg font-bold text-red-600">${totalDebt} ﷼</h3></div><div class="bg-white p-4 rounded-xl shadow-sm border border-vancyAccent/20 text-center"><p class="text-xs text-gray-500 mb-1">قيد التجهيز</p><h3 class="text-lg font-bold text-vancyDark">${pendingOrders} طلب</h3></div><div class="bg-white p-4 rounded-xl shadow-sm border border-blue-200 text-center"><p class="text-[10px] text-gray-500 mb-1">المشاهدات | التعليقات</p><h3 class="text-sm font-bold text-blue-500"><i class="fas fa-eye text-[10px]"></i> ${totalViews} <span class="text-gray-300 mx-1">|</span> <i class="fas fa-comment text-[10px]"></i> ${totalComments}</h3></div>`;
+            
+            let productSales = {}; ordersData.filter(o => o.status !== 'ملغى').forEach(o => { productSales[o.product] = (productSales[o.product] || 0) + parseInt(o.qty || 1); });
+            let sortedProducts = Object.keys(productSales).sort((a,b) => productSales[b] - productSales[a]).slice(0, 4); let productCounts = sortedProducts.map(p => productSales[p]);
+
+            const ctx1 = document.getElementById('topProductsChart').getContext('2d'); if(window.topProdChart) window.topProdChart.destroy();
+            window.topProdChart = new Chart(ctx1, { type: 'doughnut', data: { labels: sortedProducts.length ? sortedProducts : ['لا يوجد'], datasets: [{ data: productCounts.length ? productCounts : [1], backgroundColor: ['#2c4635', '#4a6b54', '#84a08f', '#f4f3e6'] }] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { family: 'Tajawal' } } } } } });
+
+            let socialLabels = socialData.slice(0, 7).reverse().map(s => s.date ? s.date.split('T')[0] : 'غير محدد'); let socialViewsData = socialData.slice(0, 7).reverse().map(s => s.views);
+            const ctx2 = document.getElementById('performanceChart').getContext('2d'); if(window.perfChart) window.perfChart.destroy();
+            window.perfChart = new Chart(ctx2, { type: 'line', data: { labels: socialLabels.length ? socialLabels : ['لا يوجد'], datasets: [{ label: 'المشاهدات', data: socialViewsData.length ? socialViewsData : [0], borderColor: '#4a6b54', backgroundColor: 'rgba(74, 107, 84, 0.2)', fill: true, tension: 0.4 }] }, options: { maintainAspectRatio: false, plugins: { legend: { labels: { font: { family: 'Tajawal' } } } }, scales: { y: { beginAtZero: true } } } });
+        }
+
+        function printDocument(title) {
+            const content = document.getElementById('invoice-content').innerHTML; const printWindow = window.open('', '_blank');
+            printWindow.document.write(`<html lang="ar" dir="rtl"><head><title>${title}</title><script src="https://cdn.tailwindcss.com"><\/script><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet"><style>body { font-family: 'Tajawal', sans-serif; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; } @page { size: A4 portrait; margin: 15mm; }</style></head><body onload="setTimeout(function(){ window.print(); window.close(); }, 1500)">${content}</body></html>`);
+            printWindow.document.close();
+        }
+
+        function generateOrderInvoice(orderId, ev) { ev.stopPropagation(); const o = ordersData.find(x => x.id == orderId); const c = customersData.find(x => x.name === o.customer) || { phone: 'غير مسجل' }; document.getElementById('pdf-type-title').innerText = "فاتورة طلب"; document.getElementById('pdf-date').innerText = new Date().toLocaleDateString('ar-SA'); document.getElementById('pdf-cust-name').innerText = o.customer; document.getElementById('pdf-cust-phone').innerText = c.phone; document.getElementById('pdf-total-label').innerText = o.payment === 'مدفوع' ? 'الإجمالي (مدفوع)' : 'الإجمالي (آجل)'; document.getElementById('pdf-total').innerText = o.price; document.getElementById('pdf-total').parentElement.className = o.payment === 'آجل' ? "text-3xl font-bold text-red-600" : "text-3xl font-bold text-[#2c4635]"; document.getElementById('pdf-table-body').innerHTML = `<tr class="border-b border-gray-200"><td class="p-4 text-right font-bold">${o.product}</td><td class="p-4 text-center font-bold">${o.qty}</td><td class="p-4 text-center text-gray-500">${o.status}</td><td class="p-4 text-left font-bold text-[#2c4635]">${o.price} ﷼</td></tr>`; printDocument(`فاتورة_طلب_${o.id}`); }
+        function generateStatement(customerId, ev) { ev.stopPropagation(); const c = customersData.find(x => x.id == customerId); const custOrders = ordersData.filter(o => o.customer === c.name && o.status !== 'ملغى'); document.getElementById('pdf-type-title').innerText = "كشف حساب"; document.getElementById('pdf-date').innerText = new Date().toLocaleDateString('ar-SA'); document.getElementById('pdf-cust-name').innerText = c.name; document.getElementById('pdf-cust-phone').innerText = c.phone; const totalDebt = custOrders.filter(o => o.payment === 'آجل').reduce((sum, o) => sum + parseFloat(o.price || 0), 0); document.getElementById('pdf-total-label').innerText = "إجمالي المديونية (الآجل)"; document.getElementById('pdf-total').innerText = totalDebt; document.getElementById('pdf-total').parentElement.className = totalDebt > 0 ? "text-3xl font-bold text-red-600" : "text-3xl font-bold text-[#2c4635]"; let tbody = ''; if(custOrders.length > 0) { custOrders.forEach(o => { tbody += `<tr class="border-b border-gray-100 ${o.payment === 'آجل' ? 'bg-red-50' : ''}"><td class="p-4 text-right"><div><p class="font-bold">${o.product}</p><p class="text-sm text-gray-500">${o.date ? o.date.split('T')[0] : ''}</p></div></td><td class="p-4 text-center font-bold">${o.qty}</td><td class="p-4 text-center">${o.payment}</td><td class="p-4 text-left font-bold">${o.price} ﷼</td></tr>`; }); } else { tbody = `<tr><td colspan="4" class="p-4 text-center text-gray-500">لا توجد طلبات مسجلة</td></tr>`; } document.getElementById('pdf-table-body').innerHTML = tbody; printDocument(`كشف_حساب_${c.name.replace(/\s+/g, '_')}`); }
+
+        window.onload = () => { switchTab('orders'); loadDataFromGoogle(); };
+    </script>
+</body>
+</html>
